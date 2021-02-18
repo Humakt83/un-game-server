@@ -4,7 +4,11 @@ A Clojure library designed to ... well, that part is up to you.
 
 ## Usage
 
-FIXME
+https://devcenter.heroku.com/articles/using-websockets-on-heroku-with-clojure-and-immutant
+
+lein uberjar
+
+java -jar target/un-game-server.jar host 0.0.0.0 port 5000
 
 ## License
 
