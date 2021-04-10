@@ -14,11 +14,17 @@
 
 (defn get-players [] @players)
 
+;; Converts JSON objects clojure hashmaps with keys as keywords
+(defn from-json [data] (json/read-str data :key-fn keyword))
+
+;; Converts clojure hashmaps to correct JSON
+(defn to-json [data] (json/write-str data :key-fn name))
+
 (defn handle-message [{message-type :msgType
                        content :content}]
   (println "Attempting to handle message of type: " message-type " and content: " content)
   (case message-type
-      "getplayers" (apply str (get-players))
+      "getplayers" (to-json (get-players))
       "text" (apply str (reverse content))))
 
 (def websocket-callbacks
@@ -29,7 +35,7 @@
     (println "close code:" code "reason:" reason))
   :on-message (fn [ch m]
     (println "Received message " m)
-    (async/send! ch (handle-message (json/read-str m :key-fn keyword))))})
+    (async/send! ch (handle-message (from-json m))))})
 
 (defroutes routes
   (GET "/" {c :context} (redirect (str c "/index.html")))
