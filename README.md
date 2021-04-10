@@ -10,6 +10,13 @@ lein uberjar
 
 java -jar target/un-game-server.jar host 0.0.0.0 port 5000
 
+## Heroku
+
+Install heroku cli, add remote
+
+git push heroku master
+heroku open
+
 ## License
 
 Copyright © 2021 FIXME
