@@ -19,7 +19,7 @@
 
 (defn register-player [player-name channel]
   (if (= nil ((keyword player-name) (get-players)))
-    (swap! players assoc (keyword player-name) {:game nil :channel channel})
+    (swap! players assoc (keyword player-name) {:gameKey nil :channel channel})
     (throw (Exception. "Player already exists"))))
 
 ;; Converts JSON objects clojure hashmaps with keys as keywords
@@ -37,6 +37,23 @@
 (defn error-msg [e]
   {:msgType "error" :content (.getMessage e)})
 
+(defn in? 
+  "true if coll contains elm"
+  [coll elm]  
+  (some #(= elm %) coll))
+
+(defn start-game [{player-names :players
+                   game-key :key}]
+  (let [game-only-players (filter #(in? player-names (name (first %))) (get-players))]
+    (doseq [player-info game-only-players]
+      (println "Send game key to all players involved in game..." player-info)
+      (let [updated-state (swap! players assoc-in [(first player-info) :gameKey] game-key)
+            asd (println "Updated state " updated-state)
+            msg-to-players (to-json {:msgType "startgame" :content game-key})
+            asdasd (println "The message " msg-to-players)
+            channel (:channel (second player-info))]
+        (async/send! channel msg-to-players)))))
+
 (defn handle-message [{message-type :msgType
                        content :content}
                       channel]
@@ -45,6 +62,7 @@
     (case message-type
       "getplayers" (to-json (player-list (get-players)))
       "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
+      "startgame" (start-game content)
       "text" (to-json (text-response (apply str (reverse content))))
       (to-json (throw (Exception. (str "No message handler for message type " message-type)))))
     (catch Exception e (to-json (error-msg e)))))
