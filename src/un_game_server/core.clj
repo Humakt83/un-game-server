@@ -10,7 +10,7 @@
    [clojure.data.json        :as json])
   (:gen-class))
 
-(def players (atom {:player1 {:game nil :channel nil}}))
+(def players (atom {}))
 
 (defn get-players [] @players)
 
@@ -49,6 +49,12 @@
       (to-json (throw (Exception. (str "No message handler for message type " message-type)))))
     (catch Exception e (to-json (error-msg e)))))
 
+(defn send-to-all [message]
+  (doseq [player-info (get-players)]
+    (println player-info)
+    (let [channel (:channel (second player-info))]
+           (async/send! channel message))))
+
 (def websocket-callbacks
   "WebSocket callback functions"
   {:on-open   (fn [channel]
@@ -56,8 +62,9 @@
   :on-close   (fn [channel {:keys [code reason]}]
     (println "close code:" code "reason:" reason))
   :on-message (fn [ch m]
-    (println "Received message " m)
-    (async/send! ch (handle-message (from-json m) ch)))})
+    (let [res (handle-message (from-json m) ch)]
+      (println res)
+      (send-to-all res)))})
 
 (defroutes routes
   (GET "/" {c :context} (redirect (str c "/index.html")))
