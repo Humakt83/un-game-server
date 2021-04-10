@@ -10,22 +10,44 @@
    [clojure.data.json        :as json])
   (:gen-class))
 
-(def players (atom {:player1 {:name "Player 1" :game-id "1234"}}))
+(def players (atom {:player1 {:game nil :channel nil}}))
 
 (defn get-players [] @players)
+
+(defn filter-out-channels [players]
+  (apply merge (map #(hash-map (first %) {:game (:game (second %))}) players)))
+
+(defn register-player [player-name channel]
+  (if (= nil ((keyword player-name) (get-players)))
+    (swap! players assoc (keyword player-name) {:game nil :channel channel})
+    (throw (Exception. "Player already exists"))))
 
 ;; Converts JSON objects clojure hashmaps with keys as keywords
 (defn from-json [data] (json/read-str data :key-fn keyword))
 
 ;; Converts clojure hashmaps to correct JSON
-(defn to-json [data] (json/write-str data :key-fn name))
+(defn to-json [data] (json/write-str data))
+
+(defn player-list [players-data]
+  {:msgType "playerList" :content (filter-out-channels players-data)})
+
+(defn text-response [data]
+  {:msgType "text" :content data})
+
+(defn error-msg [e]
+  {:msgType "error" :content (.getMessage e)})
 
 (defn handle-message [{message-type :msgType
-                       content :content}]
+                       content :content}
+                      channel]
   (println "Attempting to handle message of type: " message-type " and content: " content)
-  (case message-type
-      "getplayers" (to-json (get-players))
-      "text" (apply str (reverse content))))
+  (try
+    (case message-type
+      "getplayers" (to-json (player-list (get-players)))
+      "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
+      "text" (to-json (text-response (apply str (reverse content))))
+      (to-json (throw (Exception. (str "No message handler for message type " message-type)))))
+    (catch Exception e (to-json (error-msg e)))))
 
 (def websocket-callbacks
   "WebSocket callback functions"
@@ -35,7 +57,7 @@
     (println "close code:" code "reason:" reason))
   :on-message (fn [ch m]
     (println "Received message " m)
-    (async/send! ch (handle-message (from-json m))))})
+    (async/send! ch (handle-message (from-json m) ch)))})
 
 (defroutes routes
   (GET "/" {c :context} (redirect (str c "/index.html")))

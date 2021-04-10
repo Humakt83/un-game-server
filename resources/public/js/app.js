@@ -8,10 +8,26 @@ window.onload = function() {
     const sendBtn = document.getElementById('send');
     const closeBtn = document.getElementById('close');
     const messages = document.getElementById('messages');
-    const players = document.getElementById('players');
+    const playerTable = document.getElementById('players');
     const getPlayersBtn = document.getElementById('getPlayers');
+    const playerNameInput = document.getElementById('playerName');
+    const registerPlayerBtn = document.getElementById('registerPlayer');
 
     var socket;
+
+    function createPlayerList(players) {
+        try {
+            console.log('createPlayerList players ', players)
+            const playerRows = Object.keys(players).map((playerName) =>
+                `<tr><td>${playerName}</td><td>${players[playerName].game}</td></tr>`
+            ).join();
+            const table =
+                `<table><thead><tr><th>Player name</th><th>Game ID</th></tr></thead><tbody>${playerRows}</tbody></table>`;
+            playerTable.innerHTML = table;
+        } catch (e) {
+            console.log("failed to create player list, error: ", e);
+        }
+    }
 
     openBtn.onclick = function(e) {
         e.preventDefault();
@@ -34,7 +50,25 @@ window.onload = function() {
 
         socket.onmessage = function(event) {
             var message = event.data;
-            output("received", "<<< " + message);
+            console.log('event ', event)
+            try {
+                const parsed = JSON.parse(message);
+                console.log('Parsed message ', parsed)
+                const msgType = parsed?.msgType;
+                switch (msgType) {
+                    case 'playerList':
+                        createPlayerList(parsed.content);
+                        break;
+                    case 'text':
+                        output("received", "<<< " + message);
+                        break;
+                    default:
+                        output("received", "<<< " + message);
+                }
+            } catch(e) {
+                console.log('Encountered error while handling message: ' + message, e);
+                output("error with message", "<<< " + message);
+            }
         };
 
         socket.onclose = function(event) {
@@ -67,5 +101,18 @@ window.onload = function() {
             return;
         }
         socket.send(JSON.stringify({ msgType: 'getplayers' }));
+    }
+
+    registerPlayerBtn.onclick = function(e) {
+        if (socket == undefined) {
+            output('error', 'Not connected');
+            return;
+        }
+        socket.send(JSON.stringify({
+            msgType: 'registerplayer',
+            content: {
+                playerName: playerNameInput.value
+            }
+        }));
     }
 };
