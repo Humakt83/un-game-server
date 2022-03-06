@@ -9,17 +9,18 @@ window.onload = function() {
     const closeBtn = document.getElementById('close');
     const messages = document.getElementById('messages');
     const playerTable = document.getElementById('players');
-    const getPlayersBtn = document.getElementById('getPlayers');
+    const pickGameButton = document.getElementById('pickGameButton');
     const playerNameInput = document.getElementById('playerName');
     const registerPlayerBtn = document.getElementById('registerPlayer');
 
     var socket;
+    var playerName;
 
     function createPlayerList(players) {
         try {
             console.log('createPlayerList players ', players)
             const playerRows = Object.keys(players).map((playerName) =>
-                `<tr><td>${playerName}</td><td>${players[playerName].game}</td></tr>`
+                `<tr><td>${playerName}</td><td>${players[playerName].gameKey}</td></tr>`
             ).join();
             const table =
                 `<table><thead><tr><th>Player name</th><th>Game ID</th></tr></thead><tbody>${playerRows}</tbody></table>`;
@@ -95,14 +96,6 @@ window.onload = function() {
         socket.close(1000, "Close button clicked");
     };
 
-    getPlayersBtn.onclick = function(e) {
-        if (socket == undefined) {
-            output('error', 'Not connected');
-            return;
-        }
-        socket.send(JSON.stringify({ msgType: 'getplayers' }));
-    }
-
     registerPlayerBtn.onclick = function(e) {
         if (socket == undefined) {
             output('error', 'Not connected');
@@ -114,5 +107,21 @@ window.onload = function() {
                 playerName: playerNameInput.value
             }
         }));
+        playerName = playerNameInput.value
+        registerPlayerBtn.setAttribute('disabled', true)
     }
+
+    pickGameButton.onclick = (function() {
+        if (socket == undefined) {
+            output('error', 'Not connected');
+            return;
+        }
+        socket.send(JSON.stringify({
+            msgType: 'pickgame',
+            content: {
+                gameKey: 'Treasure Hunt',
+                playerName: playerName
+            }
+        }))
+    })
 };
