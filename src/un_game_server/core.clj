@@ -22,11 +22,15 @@
     (swap! players assoc (keyword player-name) {:gameKey nil :channel channel})
     (throw (Exception. "Player already exists"))))
 
-(defn get-player [channel]
+(defn get-player-name [channel]
   (->> (get-players)
        (filter #(= channel (:channel (second %))))
        (map #(first %))
        first))
+
+(defn get-players-with-gamekey [game-key]
+  (->> (get-players)
+       (filter #(= game-key (:gameKey (second %))))))
 
 ;; Converts JSON objects clojure hashmaps with keys as keywords
 (defn from-json [data] (json/read-str data :key-fn keyword))
@@ -74,6 +78,23 @@
             channel (:channel (second player-info))]
         (async/send! channel msg-to-players)))))
 
+(defn invite-another [{player :player} channel]
+  (let [player-in-channel (get-player-name channel)
+        game-key (->> (get-players)
+                      (filter #(in? [(name player-in-channel)] (name (first %))))
+                      first
+                      (second)
+                      :gameKey)
+        game-only-players (get-players-with-gamekey game-key)
+        player-invited ((keyword player) (get-players))
+        player-names (map #(name (first %)) game-only-players)
+        msg-to-invited (to-json {:msgType "invite" :content (concat player-names [player])})]
+    (do
+      (swap! players assoc-in [(keyword player) :gameKey] game-key)
+      (async/send! (:channel player-invited) msg-to-invited))
+    (doseq [player-info game-only-players]
+      (async/send! (:channel (second player-info)) (to-json {:msgType "joinroom" :content player})))))
+
 (defn pickgame [game-key player-name]
   (let [player ((keyword player-name) (get-players))]
     (println player)
@@ -84,13 +105,14 @@
                       channel]
   (println "Attempting to handle message of type: " message-type " and content: " content)
   (try
-    (let [player (get-player channel)
+    (let [player (get-player-name channel)
           from (if player
-                 (str player ": ")
+                 (str (name player) ": ")
                  "")]
       (case message-type
         "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
         "inviteroom" (invite-room content)
+        "invitetoexistingroom" (invite-another content channel)
         "startgame" (start-game content)
         "pickgame" (to-json (player-list (pickgame (:gameKey content) (:playerName content))))
         "text" (to-json (text-response (apply str from content)))
