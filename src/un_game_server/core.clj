@@ -22,6 +22,12 @@
     (swap! players assoc (keyword player-name) {:gameKey nil :channel channel})
     (throw (Exception. "Player already exists"))))
 
+(defn get-player [channel]
+  (->> (get-players)
+       (filter #(= channel (:channel (second %))))
+       (map #(first %))
+       first))
+
 ;; Converts JSON objects clojure hashmaps with keys as keywords
 (defn from-json [data] (json/read-str data :key-fn keyword))
 
@@ -64,12 +70,16 @@
                       channel]
   (println "Attempting to handle message of type: " message-type " and content: " content)
   (try
-    (case message-type
-      "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
-      "startgame" (start-game content)
-      "pickgame" (to-json (player-list (pickgame (:gameKey content) (:playerName content))))
-      "text" (to-json (text-response (apply str content)))
-      (to-json (throw (Exception. (str "No message handler for message type " message-type)))))
+    (let [player (get-player channel)
+          from (if player
+                 (str player ": ")
+                 "")]
+      (case message-type
+        "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
+        "startgame" (start-game content)
+        "pickgame" (to-json (player-list (pickgame (:gameKey content) (:playerName content))))
+        "text" (to-json (text-response (apply str from content)))
+        (to-json (throw (Exception. (str "No message handler for message type " message-type))))))
     (catch Exception e (to-json (error-msg e)))))
 
 (defn send-to-all [message]
