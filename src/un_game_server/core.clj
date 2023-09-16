@@ -51,11 +51,25 @@
 (defn start-game [{player-names :players
                    game-key :key}]
   (let [game-only-players (filter #(in? player-names (name (first %))) (get-players))]
+    (prn game-only-players)
     (doseq [player-info game-only-players]
       (println "Send game key to all players involved in game..." player-info)
       (let [updated-state (swap! players assoc-in [(first player-info) :gameKey] game-key)
             asd (println "Updated state " updated-state)
             msg-to-players (to-json {:msgType "startgame" :content game-key})
+            asdasd (println "The message " msg-to-players)
+            channel (:channel (second player-info))]
+        (async/send! channel msg-to-players)))))
+
+(defn invite-room [{player-names :players
+                   game-key :key}]
+  (let [game-only-players (filter #(in? player-names (name (first %))) (get-players))]
+    (prn game-only-players)
+    (doseq [player-info game-only-players]
+      (println "Send game key to all players involved in game..." player-info)
+      (let [updated-state (swap! players assoc-in [(first player-info) :gameKey] game-key)
+            asd (println "Updated state " updated-state)
+            msg-to-players (to-json {:msgType "invite" :content player-names})
             asdasd (println "The message " msg-to-players)
             channel (:channel (second player-info))]
         (async/send! channel msg-to-players)))))
@@ -76,6 +90,7 @@
                  "")]
       (case message-type
         "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
+        "inviteroom" (invite-room content)
         "startgame" (start-game content)
         "pickgame" (to-json (player-list (pickgame (:gameKey content) (:playerName content))))
         "text" (to-json (text-response (apply str from content)))
