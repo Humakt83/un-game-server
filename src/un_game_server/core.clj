@@ -15,7 +15,7 @@
 (defn get-players [] @players)
 
 (defn filter-out-channels [players]
-  (apply merge (map #(hash-map (first %) {:game (:game (second %))}) players)))
+  (apply merge (map #(hash-map (first %) {:gameKey (:gameKey (second %))}) players)))
 
 (defn register-player [player-name channel]
   (if (= nil ((keyword player-name) (get-players)))
@@ -54,16 +54,21 @@
             channel (:channel (second player-info))]
         (async/send! channel msg-to-players)))))
 
+(defn pickgame [game-key player-name]
+  (let [player ((keyword player-name) (get-players))]
+    (println player)
+    (swap! players update-in [(keyword player-name)] merge {:gameKey game-key})))
+
 (defn handle-message [{message-type :msgType
                        content :content}
                       channel]
   (println "Attempting to handle message of type: " message-type " and content: " content)
   (try
     (case message-type
-      "getplayers" (to-json (player-list (get-players)))
       "registerplayer" (to-json (player-list (register-player (:playerName content) channel)))
       "startgame" (start-game content)
-      "text" (to-json (text-response (apply str (reverse content))))
+      "pickgame" (to-json (player-list (pickgame (:gameKey content) (:playerName content))))
+      "text" (to-json (text-response (apply str content)))
       (to-json (throw (Exception. (str "No message handler for message type " message-type)))))
     (catch Exception e (to-json (error-msg e)))))
 
@@ -76,7 +81,7 @@
 (def websocket-callbacks
   "WebSocket callback functions"
   {:on-open   (fn [channel]
-    (async/send! channel "Ready to reverse your messages!"))
+    (async/send! channel "Ready to process your messages!"))
   :on-close   (fn [channel {:keys [code reason]}]
     (println "close code:" code "reason:" reason))
   :on-message (fn [ch m]
